@@ -6,34 +6,55 @@ import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
 
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 public class MainMenu implements GLEventListener, ActionListener {
     private GLJPanel canvas;
     private FPSAnimator animator;
-    private JButton startButton;
+    private JButton startButton, exitButton;
     private JFrame frame;
 
     public MainMenu(JFrame frame) {
         this.frame = frame;
 
+        // Initialize OpenGL canvas
         GLProfile profile = GLProfile.get(GLProfile.GL2);
         GLCapabilities capabilities = new GLCapabilities(profile);
-
         canvas = new GLJPanel(capabilities);
         canvas.addGLEventListener(this);
 
         animator = new FPSAnimator(canvas, 60);
 
+        // Initialize buttons
         startButton = new JButton("Start Game");
+        exitButton = new JButton("Exit Game");
         startButton.addActionListener(this);
+        exitButton.addActionListener(this);
 
+        // Customize button size and font
+        startButton.setFont(new Font("Arial", Font.BOLD, 24));
+        exitButton.setFont(new Font("Arial", Font.BOLD, 24));
+        startButton.setPreferredSize(new Dimension(200, 60));
+        exitButton.setPreferredSize(new Dimension(200, 60));
+
+        // Create a panel for buttons and title
         JPanel panel = new JPanel();
+        panel.setLayout(new FlowLayout(FlowLayout.CENTER, 20, 20));  // FlowLayout to center buttons horizontally
         panel.add(startButton);
+        panel.add(exitButton);
 
-        frame.getContentPane().add(canvas);
-        frame.getContentPane().add(panel, "South");
+        // Title for the game
+        JLabel titleLabel = new JLabel("Steal Bananas", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 40));
+        titleLabel.setPreferredSize(new Dimension(800, 100));  // Height for title space
+
+        // Set up layout for the frame
+        frame.getContentPane().setLayout(new BorderLayout());
+        frame.getContentPane().add(canvas, BorderLayout.CENTER);  // Add OpenGL canvas in the center
+        frame.getContentPane().add(titleLabel, BorderLayout.NORTH);    // Add title at the top
+        frame.getContentPane().add(panel, BorderLayout.SOUTH);    // Add panel with buttons below title
 
         animator.start();
     }
@@ -65,7 +86,7 @@ public class MainMenu implements GLEventListener, ActionListener {
 
     private void renderMenuText(GL2 gl) {
         gl.glPushMatrix();
-        System.out.println("Main Menu - Press the 'Start Game' button to begin.");
+        System.out.println("Main Menu - Press 'Start Game' to begin or 'Exit Game' to quit.");
         gl.glPopMatrix();
     }
 
@@ -82,6 +103,7 @@ public class MainMenu implements GLEventListener, ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == startButton) {
+            // Stop animator and transition to game screen
             animator.stop();
             frame.getContentPane().removeAll();
             Game game = new Game(frame);
@@ -89,6 +111,9 @@ public class MainMenu implements GLEventListener, ActionListener {
             frame.revalidate();
             frame.repaint();
             game.start();
+        } else if (e.getSource() == exitButton) {
+            // Close the game when exit button is clicked
+            System.exit(0);  // Exit the application
         }
     }
 }
