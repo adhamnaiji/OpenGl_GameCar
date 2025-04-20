@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import javax.swing.*;
+import java.awt.BorderLayout;
+import javax.swing.JButton;
+import javax.swing.JPanel;
 
 public class Game implements GLEventListener, KeyListener {
     private GLJPanel canvas;
@@ -181,21 +184,49 @@ public class Game implements GLEventListener, KeyListener {
     }
 
     private void showRestartMenu() {
-        // Remove game content and show restart menu
-    	  frame.getContentPane().removeAll();
+        // Remove game content to clear the current screen
+        frame.getContentPane().removeAll();
+        
+        // Create a panel to hold the restart button
+        JPanel restartPanel = new JPanel();
+        
+        // Create a restart button
+        JButton restartButton = new JButton("Restart");
+        
+        // Add an action listener to the button to start a new game when clicked
+        restartButton.addActionListener(e -> restartGame());
 
-          // Create a new Game instance and add its canvas to the frame
-          Game newGame = new Game(frame);
-          GLJPanel canvas = newGame.getCanvas();
-          frame.getContentPane().add(canvas);
-
-          // Revalidate and repaint the frame
-          frame.revalidate();
-          frame.repaint();
-
-          // Start the game
-          newGame.start();
+        // Add the restart button to the panel
+        restartPanel.add(restartButton);
+        
+        // Add the restart panel to the frame
+        frame.getContentPane().add(restartPanel, BorderLayout.CENTER);
+        
+        // Revalidate and repaint the frame to apply changes
+        frame.revalidate();
+        frame.repaint();
     }
+
+    private void restartGame() {
+        // Remove the restart menu
+        frame.getContentPane().removeAll();
+
+        // Create a new Game instance and add its canvas to the frame
+        Game newGame = new Game(frame);
+        GLJPanel canvas = newGame.getCanvas();
+        frame.getContentPane().add(canvas);
+
+        // Revalidate and repaint the frame to apply changes
+        frame.revalidate();
+        frame.repaint();
+
+        // Start the new game
+        newGame.start();
+
+        // Ensure the canvas gets focus to capture key events
+        canvas.requestFocusInWindow();
+    }
+
 
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {

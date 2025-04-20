@@ -17,6 +17,9 @@ class Monkey {
         gl.glPushMatrix();
         gl.glTranslatef(x, y, z); // Translate to the monkey's position
 
+        // Scale down the monkey's size
+        gl.glScalef(0.5f, 0.5f, 0.5f); // Scale the monkey to 50% of its original size
+
         // Draw body (sphere)
         gl.glColor3f(0.8f, 0.5f, 0.2f); // Brown color
         drawSphere(gl, 0.5f); // Draw body (sphere)
@@ -36,6 +39,7 @@ class Monkey {
 
         gl.glPopMatrix();
     }
+
 
     // Helper method to draw a sphere
     private void drawSphere(GL2 gl, float radius) {
