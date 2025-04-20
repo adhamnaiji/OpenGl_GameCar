@@ -32,19 +32,15 @@ public class Game implements GLEventListener, KeyListener {
     public Game(JFrame frame) {
         this.frame = frame;
 
-        // Set up OpenGL profile and capabilities
         GLProfile profile = GLProfile.get(GLProfile.GL2);
         GLCapabilities capabilities = new GLCapabilities(profile);
 
-        // Initialize the OpenGL canvas (GLJPanel)
         canvas = new GLJPanel(capabilities);
         canvas.addGLEventListener(this);
         canvas.addKeyListener(this);
 
-        // Set up the FPS animator (60 frames per second)
         animator = new FPSAnimator(canvas, 60);
 
-        // Initialize game components
         car = new Car();
         road = new Road();
         camera = new Camera(car);
@@ -52,76 +48,64 @@ public class Game implements GLEventListener, KeyListener {
         forestBackground = new ForestBackground();
         gameObjects = new ArrayList<>();
 
-        // Add obstacles to game objects
         gameObjects.add(new BoxObstacle());
         gameObjects.add(new TomatoObstacle());
         gameObjects.add(new BananaObstacle());
     }
 
-    // Getter for the canvas (OpenGL panel)
     public GLJPanel getCanvas() {
         return canvas;
     }
 
-    // Start the animation loop
     public void start() {
         animator.start();
         canvas.requestFocusInWindow();
     }
 
-    // Getter for the animator
-    public FPSAnimator getAnimator() {
-        return animator;
-    }
-
     @Override
     public void init(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glEnable(GL2.GL_DEPTH_TEST);  // Enable depth test for 3D rendering
+        gl.glEnable(GL2.GL_DEPTH_TEST);
     }
 
     @Override
     public void dispose(GLAutoDrawable drawable) {}
 
-    // Update spawn interval for obstacles
     private void updateSpawnInterval() {
         Random rand = new Random();
-        spawnInterval = 4.0f + rand.nextFloat(); // Random spawn time between 4.0 and 5.0 seconds
+        spawnInterval = 4.0f + rand.nextFloat(); // 4.0 to 5.0
     }
 
-    // Check if a position is already occupied by an obstacle
     private boolean isPositionOccupied(float x, float z) {
         final float MIN_DISTANCE = 0.5f;
         for (float[] pos : activeObstaclePositions) {
             float dx = pos[0] - x;
             float dz = pos[1] - z;
             if (Math.sqrt(dx * dx + dz * dz) < MIN_DISTANCE) {
-                return true;  // The position is occupied
+                return true;
             }
         }
-        return false;  // The position is free
+        return false;
     }
 
-    // Spawn a new obstacle at a random position
     private void spawnNewObstacle() {
         if (gameObjects.size() < MAX_OBSTACLES) {
             Random rand = new Random();
-            float x = rand.nextInt(3) - 1;  // Random position on x-axis (-1 to 1)
-            float z = car.getZ() - 40.0f;   // Spawn behind the car on the z-axis
-            float y = 0.35f;  // Fixed height for obstacles
+            float x = rand.nextInt(3) - 1;
+            float z = car.getZ() - 40.0f;
+            float y = 0.35f;
 
             if (!isPositionOccupied(x, z)) {
                 GameObject newObstacle = getRandomObstacle(x, y, z);
                 gameObjects.add(newObstacle);
-                activeObstaclePositions.add(new float[]{x, z});  // Add position to active list
+                activeObstaclePositions.add(new float[]{x, z});
             }
         }
     }
 
-    // Get a random obstacle type to spawn
     private GameObject getRandomObstacle(float x, float y, float z) {
         Random rand = new Random();
-        int choice = rand.nextInt(3);  // Randomly choose an obstacle type
+        int choice = rand.nextInt(3);
 
         GameObject obj;
         switch (choice) {
@@ -139,14 +123,13 @@ public class Game implements GLEventListener, KeyListener {
     @Override
     public void display(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);  // Clear the screen
+        gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 
         if (!gameOver) {
             road.update();
             car.update();
             forestBackground.update();
 
-            // Spawn obstacles at regular intervals
             long currentTime = System.currentTimeMillis();
             float deltaTime = (currentTime - lastSpawnTime) / 1000f;
 
@@ -156,59 +139,62 @@ public class Game implements GLEventListener, KeyListener {
                 updateSpawnInterval();
             }
 
-            // Update and check collisions for all obstacles
             for (int i = 0; i < gameObjects.size(); i++) {
                 GameObject obj = gameObjects.get(i);
                 obj.update();
 
-                // Check if car collides with any obstacle
                 if (CollisionDetector.checkCollision(car, obj)) {
                     gameOver = true;
-                    animator.stop();  // Stop the animation loop
+                    animator.stop();
 
                     // Trigger restart menu when the game is over
                     showRestartMenu();
                     break;
                 } else if (!obj.isPassed() && obj.getZ() > car.getZ() + 1.0f) {
-                    scoreManager.incrementScore();  // Increment score if the obstacle is passed
+                    scoreManager.incrementScore();
                     obj.setPassed(true);
                 }
             }
 
-            scoreManager.update();  // Update score display
+            scoreManager.update();
         }
 
-        camera.update();  // Update camera
-        camera.applyView(gl);  // Apply the camera's view to OpenGL
+        camera.update();
+        camera.applyView(gl);
 
-        // Draw background, road, car, and obstacles
         forestBackground.draw(gl);
         road.draw(gl);
         car.draw(gl);
 
         for (GameObject obj : gameObjects) {
-            obj.draw(gl);  // Draw each obstacle
+            obj.draw(gl);
         }
 
-        // Render the score
         int width = drawable.getSurfaceWidth();
         int height = drawable.getSurfaceHeight();
+
         scoreManager.render(gl, width, height);
 
-        // Display the game-over screen if the game is over
         if (gameOver) {
             scoreManager.renderGameOver(gl, width, height);
         }
     }
 
-    // Show the restart menu
     private void showRestartMenu() {
         // Remove game content and show restart menu
-        frame.getContentPane().removeAll();
-        RestartMenu restartMenu = new RestartMenu(frame, getAnimator());  // Pass animator to RestartMenu
-        frame.getContentPane().add(restartMenu.getPanel());  // Use getPanel() from RestartMenu
-        frame.revalidate();
-        frame.repaint();
+    	  frame.getContentPane().removeAll();
+
+          // Create a new Game instance and add its canvas to the frame
+          Game newGame = new Game(frame);
+          GLJPanel canvas = newGame.getCanvas();
+          frame.getContentPane().add(canvas);
+
+          // Revalidate and repaint the frame
+          frame.revalidate();
+          frame.repaint();
+
+          // Start the game
+          newGame.start();
     }
 
     @Override
@@ -223,12 +209,12 @@ public class Game implements GLEventListener, KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-        car.handleKeyPress(e);  // Handle key press for car movement
+        car.keyPressed(e);
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        car.handleKeyRelease(e);  // Handle key release for car movement
+        car.keyReleased(e);
     }
 
     @Override
