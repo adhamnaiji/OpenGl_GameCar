@@ -17,7 +17,7 @@ public class Camera {
     }
     
     public void update() {
-        // Update camera position based on the car’s current position.
+        // Update camera position based on the cars current position.
         eyeX = car.getX();
         eyeY = car.getY() + 2.0f;
         eyeZ = car.getZ() + 5.0f;

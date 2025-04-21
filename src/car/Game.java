@@ -186,26 +186,18 @@ public class Game implements GLEventListener, KeyListener {
     private void showRestartMenu() {
         // Remove game content to clear the current screen
         frame.getContentPane().removeAll();
-        
-        // Create a panel to hold the restart button
-        JPanel restartPanel = new JPanel();
-        
-        // Create a restart button
-        JButton restartButton = new JButton("Restart");
-        
-        // Add an action listener to the button to start a new game when clicked
-        restartButton.addActionListener(e -> restartGame());
 
-        // Add the restart button to the panel
-        restartPanel.add(restartButton);
-        
-        // Add the restart panel to the frame
-        frame.getContentPane().add(restartPanel, BorderLayout.CENTER);
-        
+        // Create the enhanced RestartMenu UI
+        RestartMenu restartMenu = new RestartMenu(frame, animator);
+
+        // Add the new styled panel to the frame
+        frame.getContentPane().add(restartMenu.getPanel(), BorderLayout.CENTER);
+
         // Revalidate and repaint the frame to apply changes
         frame.revalidate();
         frame.repaint();
     }
+
 
     private void restartGame() {
         // Remove the restart menu
