@@ -7,13 +7,17 @@ import com.jogamp.opengl.util.FPSAnimator;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import javax.swing.*;
 import java.awt.BorderLayout;
 
 public class Game implements GLEventListener, KeyListener {
+    private BackgroundMusicPlayer musicPlayer;
+
     private GLJPanel canvas;
     private FPSAnimator animator;
     private Car car;
@@ -28,9 +32,10 @@ public class Game implements GLEventListener, KeyListener {
     private long lastSpawnTime = System.currentTimeMillis();
     private float spawnInterval = 4.0f;
     private final int MAX_OBSTACLES = 4;
-    private List<float[]> activeObstaclePositions = new ArrayList<>();
+    private final float MIN_Z_DISTANCE = 2.0f;
 
-    private final float MIN_Z_DISTANCE = 2.0f; // Minimum distance between obstacles along Z (car length or more)
+    private List<float[]> activeObstaclePositions = new ArrayList<>();
+    private List<ParticleSystem> particleSystems = new ArrayList<>();  // Particle systems list
 
     public Game(JFrame frame) {
         this.frame = frame;
@@ -50,6 +55,12 @@ public class Game implements GLEventListener, KeyListener {
         scoreManager = new ScoreManager();
         forestBackground = new ForestBackground();
         gameObjects = new ArrayList<>();
+        File musicFile = new File("bg_car.wav");
+        if (!musicFile.exists()) {
+            System.out.println("Error: Music file not found at path " + musicFile.getAbsolutePath());
+        } else {
+            musicPlayer = new BackgroundMusicPlayer(musicFile.getAbsolutePath());
+        }
 
         gameObjects.add(new BoxObstacle());
         gameObjects.add(new BananaObstacle());
@@ -75,7 +86,7 @@ public class Game implements GLEventListener, KeyListener {
 
     private void updateSpawnInterval() {
         Random rand = new Random();
-        spawnInterval = 6.0f + rand.nextFloat(); // 4.0 to 5.0
+        spawnInterval = 4.0f + rand.nextFloat(); // 4.0 to 5.0
     }
 
     private boolean isPositionOccupied(float x, float z) {
@@ -91,7 +102,7 @@ public class Game implements GLEventListener, KeyListener {
     private void spawnNewObstacle() {
         if (gameObjects.size() < MAX_OBSTACLES) {
             Random rand = new Random();
-            float x = rand.nextInt(3) - 1; // Lane: -1, 0, or 1
+            float x = rand.nextInt(3) - 1; // Lane: -1, 0, 1
             float z = car.getZ() - 40.0f;
             float y = 0.35f;
 
@@ -120,12 +131,17 @@ public class Game implements GLEventListener, KeyListener {
         gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 
         if (!gameOver) {
-            // Update environment
+            // Start background music if not already playing
+            if (!musicPlayer.isPlaying()) {
+                musicPlayer.play();
+            }
+
+            // Update world
             road.update();
             car.update();
             forestBackground.update();
 
-            // Handle obstacle spawning
+            // Spawn new obstacles
             long currentTime = System.currentTimeMillis();
             float deltaTime = (currentTime - lastSpawnTime) / 1000f;
 
@@ -135,31 +151,56 @@ public class Game implements GLEventListener, KeyListener {
                 updateSpawnInterval();
             }
 
-            // Remove far-passed obstacles from tracking
+            // Remove old obstacles
             activeObstaclePositions.removeIf(pos -> pos[1] > car.getZ() + 5.0f);
 
-            // Handle obstacle logic
-            for (int i = 0; i < gameObjects.size(); i++) {
-                GameObject obj = gameObjects.get(i);
+            // Update and handle game objects
+            Iterator<GameObject> objIterator = gameObjects.iterator();
+            while (objIterator.hasNext()) {
+                GameObject obj = objIterator.next();
                 obj.update();
 
+                // Check collision with the car
                 if (CollisionDetector.checkCollision(car, obj, scoreManager)) {
                     if (obj instanceof BoxObstacle) {
+                        // Game over when colliding with a BoxObstacle
                         gameOver = true;
                         animator.stop();
                         showRestartMenu();
                         break;
+                    } else if (obj instanceof BananaObstacle) {
+                        // Trigger particles at the banana's location
+                        ParticleSystem particleSystem = new ParticleSystem(obj.getX(), obj.getY(), obj.getZ());
+                        particleSystems.add(particleSystem);
+
+                        // Remove the banana obstacle immediately after collision
+                        objIterator.remove();
+                        continue; // Skip further checks for this obstacle
                     }
                 } else if (!obj.isPassed() && obj.getZ() > car.getZ() + 1.0f) {
-                    obj.setPassed(true); // Prevent scoring again for passed items
+                    obj.setPassed(true);
                 }
             }
+
+            // Update particle systems
+            Iterator<ParticleSystem> psIterator = particleSystems.iterator();
+            while (psIterator.hasNext()) {
+                ParticleSystem ps = psIterator.next();
+                ps.update(deltaTime); // Pass deltaTime
+                if (ps.isDead()) {
+                    psIterator.remove();
+                }
+            }
+        } else {
+            // Stop music if game is over
+            musicPlayer.stop();
         }
 
-        // Render scene
+        // Update camera
         camera.update();
         camera.applyView(gl);
 
+        // Draw background and objects
         forestBackground.draw(gl);
         road.draw(gl);
         car.draw(gl);
@@ -168,7 +209,12 @@ public class Game implements GLEventListener, KeyListener {
             obj.draw(gl);
         }
 
-        // Render UI
+        // Draw active particles
+        for (ParticleSystem ps : particleSystems) {
+            ps.draw(gl);
+        }
+
+        // Draw UI
         int width = drawable.getSurfaceWidth();
         int height = drawable.getSurfaceHeight();
 
@@ -178,7 +224,6 @@ public class Game implements GLEventListener, KeyListener {
             scoreManager.renderGameOver(gl, width, height);
         }
     }
-
 
     private void showRestartMenu() {
         frame.getContentPane().removeAll();
