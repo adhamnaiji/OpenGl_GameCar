@@ -12,8 +12,6 @@ import java.util.List;
 import java.util.Random;
 import javax.swing.*;
 import java.awt.BorderLayout;
-import javax.swing.JButton;
-import javax.swing.JPanel;
 
 public class Game implements GLEventListener, KeyListener {
     private GLJPanel canvas;
@@ -31,6 +29,8 @@ public class Game implements GLEventListener, KeyListener {
     private float spawnInterval = 4.0f;
     private final int MAX_OBSTACLES = 4;
     private List<float[]> activeObstaclePositions = new ArrayList<>();
+
+    private final float MIN_Z_DISTANCE = 2.0f; // Minimum distance between obstacles along Z (car length or more)
 
     public Game(JFrame frame) {
         this.frame = frame;
@@ -52,7 +52,6 @@ public class Game implements GLEventListener, KeyListener {
         gameObjects = new ArrayList<>();
 
         gameObjects.add(new BoxObstacle());
-        gameObjects.add(new TomatoObstacle());
         gameObjects.add(new BananaObstacle());
     }
 
@@ -76,15 +75,13 @@ public class Game implements GLEventListener, KeyListener {
 
     private void updateSpawnInterval() {
         Random rand = new Random();
-        spawnInterval = 4.0f + rand.nextFloat(); // 4.0 to 5.0
+        spawnInterval = 6.0f + rand.nextFloat(); // 4.0 to 5.0
     }
 
     private boolean isPositionOccupied(float x, float z) {
-        final float MIN_DISTANCE = 0.5f;
         for (float[] pos : activeObstaclePositions) {
-            float dx = pos[0] - x;
-            float dz = pos[1] - z;
-            if (Math.sqrt(dx * dx + dz * dz) < MIN_DISTANCE) {
+            float dz = Math.abs(pos[1] - z);
+            if (dz < MIN_Z_DISTANCE) {
                 return true;
             }
         }
@@ -94,7 +91,7 @@ public class Game implements GLEventListener, KeyListener {
     private void spawnNewObstacle() {
         if (gameObjects.size() < MAX_OBSTACLES) {
             Random rand = new Random();
-            float x = rand.nextInt(3) - 1;
+            float x = rand.nextInt(3) - 1; // Lane: -1, 0, or 1
             float z = car.getZ() - 40.0f;
             float y = 0.35f;
 
@@ -108,15 +105,9 @@ public class Game implements GLEventListener, KeyListener {
 
     private GameObject getRandomObstacle(float x, float y, float z) {
         Random rand = new Random();
-        int choice = rand.nextInt(3);
+        int choice = rand.nextInt(2); // 0 or 1
 
-        GameObject obj;
-        switch (choice) {
-            case 0: obj = new TomatoObstacle(); break;
-            case 1: obj = new BoxObstacle(); break;
-            default: obj = new BananaObstacle(); break;
-        }
-
+        GameObject obj = (choice == 0) ? new BoxObstacle() : new BananaObstacle();
         obj.setX(x);
         obj.setY(y);
         obj.setZ(z);
@@ -129,10 +120,12 @@ public class Game implements GLEventListener, KeyListener {
         gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 
         if (!gameOver) {
+            // Update environment
             road.update();
             car.update();
             forestBackground.update();
 
+            // Handle obstacle spawning
             long currentTime = System.currentTimeMillis();
             float deltaTime = (currentTime - lastSpawnTime) / 1000f;
 
@@ -142,26 +135,28 @@ public class Game implements GLEventListener, KeyListener {
                 updateSpawnInterval();
             }
 
+            // Remove far-passed obstacles from tracking
+            activeObstaclePositions.removeIf(pos -> pos[1] > car.getZ() + 5.0f);
+
+            // Handle obstacle logic
             for (int i = 0; i < gameObjects.size(); i++) {
                 GameObject obj = gameObjects.get(i);
                 obj.update();
 
-                if (CollisionDetector.checkCollision(car, obj)) {
-                    gameOver = true;
-                    animator.stop();
-
-                    // Trigger restart menu when the game is over
-                    showRestartMenu();
-                    break;
+                if (CollisionDetector.checkCollision(car, obj, scoreManager)) {
+                    if (obj instanceof BoxObstacle) {
+                        gameOver = true;
+                        animator.stop();
+                        showRestartMenu();
+                        break;
+                    }
                 } else if (!obj.isPassed() && obj.getZ() > car.getZ() + 1.0f) {
-                    scoreManager.incrementScore();
-                    obj.setPassed(true);
+                    obj.setPassed(true); // Prevent scoring again for passed items
                 }
             }
-
-            scoreManager.update();
         }
 
+        // Render scene
         camera.update();
         camera.applyView(gl);
 
@@ -173,6 +168,7 @@ public class Game implements GLEventListener, KeyListener {
             obj.draw(gl);
         }
 
+        // Render UI
         int width = drawable.getSurfaceWidth();
         int height = drawable.getSurfaceHeight();
 
@@ -183,42 +179,25 @@ public class Game implements GLEventListener, KeyListener {
         }
     }
 
+
     private void showRestartMenu() {
-        // Remove game content to clear the current screen
         frame.getContentPane().removeAll();
-
-        // Create the enhanced RestartMenu UI
         RestartMenu restartMenu = new RestartMenu(frame, animator);
-
-        // Add the new styled panel to the frame
         frame.getContentPane().add(restartMenu.getPanel(), BorderLayout.CENTER);
-
-        // Revalidate and repaint the frame to apply changes
         frame.revalidate();
         frame.repaint();
     }
 
-
     private void restartGame() {
-        // Remove the restart menu
         frame.getContentPane().removeAll();
-
-        // Create a new Game instance and add its canvas to the frame
         Game newGame = new Game(frame);
         GLJPanel canvas = newGame.getCanvas();
         frame.getContentPane().add(canvas);
-
-        // Revalidate and repaint the frame to apply changes
         frame.revalidate();
         frame.repaint();
-
-        // Start the new game
         newGame.start();
-
-        // Ensure the canvas gets focus to capture key events
         canvas.requestFocusInWindow();
     }
-
 
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
